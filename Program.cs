@@ -7,7 +7,7 @@ var headerFile = Path.Join(Environment.GetFolderPath(Environment.SpecialFolder.U
 
 var url = args
     .Select(a => Uri.TryCreate(a, UriKind.Absolute, out var url) ? url : null)
-    .FirstOrDefault(a => a != null);
+    .FirstOrDefault(a => a?.IsFile == false);
 
 var psi = new ProcessStartInfo();
 
