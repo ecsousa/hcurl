@@ -26,7 +26,7 @@ if (url != null && File.Exists(headerFile))
 foreach (var item in args)
     psi.ArgumentList.Add(item);
 
-psi.FileName = "curl.exe";
+psi.FileName = "curl";
 psi.UseShellExecute = false;
 
 var process = Process.Start(psi);
