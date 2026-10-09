@@ -1,0 +1,78 @@
+name: Build
+
+on:
+  push:
+    branches: [main, master]
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build ${{ matrix.rid }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Native AOT can't cross-compile between operating systems, so each OS builds on its own runner.
+          # macOS and Windows can cross-compile between architectures; Linux uses a native arm64 runner.
+          - { rid: linux-x64,   os: ubuntu-22.04 }
+          - { rid: linux-arm64, os: ubuntu-22.04-arm }
+          - { rid: osx-x64,     os: macos-latest }
+          - { rid: osx-arm64,   os: macos-latest }
+          - { rid: win-x64,     os: windows-latest }
+          - { rid: win-arm64,   os: windows-latest }
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+
+      - name: Publish
+        shell: bash
+        run: dotnet publish hcurl.csproj -c Release -r ${{ matrix.rid }} -o publish
+
+      - name: Package
+        id: package
+        shell: bash
+        run: |
+          mkdir dist
+          if [[ "${{ matrix.rid }}" == win-* ]]; then
+            archive="hcurl-${{ matrix.rid }}.zip"
+            (cd publish && 7z a "../dist/$archive" hcurl.exe)
+          else
+            archive="hcurl-${{ matrix.rid }}.tar.gz"
+            tar -czf "dist/$archive" -C publish hcurl
+          fi
+          echo "archive=$archive" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hcurl-${{ matrix.rid }}
+          path: dist/${{ steps.package.outputs.archive }}
+          if-no-files-found: error
+
+  release:
+    name: Attach to release
+    if: github.event_name == 'release'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Upload release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "${{ github.event.release.tag_name }}" dist/* --clobber --repo "${{ github.repository }}"
