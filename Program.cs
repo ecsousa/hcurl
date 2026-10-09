@@ -13,7 +13,18 @@ var psi = new ProcessStartInfo();
 
 if (url != null && File.Exists(headerFile))
 {
-    var headerList = new HeadersConfiguration(headerFile).GetHeaders(url);
+    (string key, string value)[] headerList;
+
+    try
+    {
+        headerList = await new HeadersConfiguration(headerFile).GetHeadersAsync(url);
+    }
+    catch (HcurlException e)
+    {
+        Console.Error.WriteLine($"hcurl: {e.Message}");
+        Environment.Exit(1);
+        return;
+    }
 
     foreach(var header in headerList)
     {
