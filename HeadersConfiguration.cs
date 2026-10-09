@@ -52,12 +52,12 @@ namespace hcurl
             var resolvers = new Resolvers();
             var result = new List<(string key, string value)>();
 
-            var headers = this.headersByPattern
-                .Where(entry => entry.hostPattern.IsMatch(url.Host))
-                .Where(entry => entry.pathPattern == null || entry.pathPattern.IsMatch(url.AbsolutePath))
-                .SelectMany(entry => entry.headers);
+            // Only the first matching entry applies, so more specific entries should come first.
+            var match = this.headersByPattern
+                .FirstOrDefault(entry => entry.hostPattern.IsMatch(url.Host)
+                    && (entry.pathPattern == null || entry.pathPattern.IsMatch(url.AbsolutePath)));
 
-            foreach (var header in headers)
+            foreach (var header in match.headers ?? new List<(string key, ValueExpression value)>())
                 result.Add((header.key, await header.value.EvaluateAsync(resolvers)));
 
             return result.ToArray();
